@@ -2,13 +2,15 @@ import express, { type Request, type Response, type NextFunction } from "express
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
-// Configuraciones de express[cite: 6]
 const app = express();
-const PORT = 3000; // Examen requiere puerto 3000[cite: 1]
+const PORT = 3005;
 
+// Configuración de Rate Limit
 const limiter = rateLimit({
-    windowMs: 60_000, // 1 Minuto[cite: 6]
-    max: 30, // Examen solicita 30 peticiones[cite: 1]
+    windowMs: 60 * 1000, // 1 Minuto
+    max: 30, // 30 peticiones por minuto
+    standardHeaders: true,
+    legacyHeaders: false,
     message: {
         error: "Demasiadas peticiones, Intente en 1 minuto"
     }
@@ -19,7 +21,7 @@ app.use(helmet());
 app.use(express.json());
 app.use(limiter);
 
-// Base de datos simulada en memoria
+// Base de datos
 interface Usuario {
     id: number;
     nombre: string;
@@ -32,28 +34,27 @@ let usuarios: Usuario[] = [
     { id: 3, nombre: "Ana Martínez", email: "ana@example.com" }
 ];
 
-// GET /api/usuarios => Listar todos los usuarios[cite: 1, 6]
+// GET /api/usuarios
 app.get("/api/usuarios", (req: Request, res: Response) => {
     res.json(usuarios);
 });
 
-// GET /api/usuarios/:id => Obtener usuario por ID[cite: 1, 6]
+// GET /api/usuarios/:id
 app.get("/api/usuarios/:id", (req: Request, res: Response) => {
-    const id = Number(req.params.id); // Estilo de clase[cite: 6]
-    const usuario = usuarios.find((u: any) => u.id == id); // Estilo de clase[cite: 6]
+    const id = Number(req.params.id);
+    const usuario = usuarios.find((u) => u.id === id);
 
     if (!usuario) {
-        return res.status(404).json({ error: "Usuario no encontrado" }); //[cite: 1]
+        return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
     res.json(usuario);
 });
 
-// POST /api/usuarios => Crear un nuevo Usuario[cite: 1, 6]
+// POST /api/usuarios
 app.post("/api/usuarios", (req: Request, res: Response) => {
-    const { nombre, email } = req.body; //[cite: 1]
+    const { nombre, email } = req.body || {};
 
-    // Validaciones al estilo de clase[cite: 6]
     if (!nombre || typeof nombre !== "string" || nombre.trim().length === 0) {
         return res.status(400).json({ error: "El nombre es obligatorio y no puede estar vacío" });
     }
@@ -61,12 +62,11 @@ app.post("/api/usuarios", (req: Request, res: Response) => {
         return res.status(400).json({ error: "El email es obligatorio y no puede estar vacío" });
     }
 
-    // Calculo del autoincremental exacto a la clase[cite: 6]
     const nuevoId = usuarios.length > 0
-        ? Math.max(...usuarios.map((u: any) => u.id)) + 1
+        ? Math.max(...usuarios.map((u) => u.id)) + 1
         : 1;
 
-    const nuevoUsuario = {
+    const nuevoUsuario: Usuario = {
         id: nuevoId,
         nombre: nombre.trim(),
         email: email.trim()
@@ -77,7 +77,7 @@ app.post("/api/usuarios", (req: Request, res: Response) => {
     res.status(201).json(nuevoUsuario);
 });
 
-// GET /api/health => Estado del servidor[cite: 1]
+// GET /api/health
 app.get("/api/health", (req: Request, res: Response) => {
     res.json({
         status: "OK",
@@ -85,12 +85,18 @@ app.get("/api/health", (req: Request, res: Response) => {
     });
 });
 
-// Middleware de manejo de errores (sin stack trace para el cliente)[cite: 1]
+// Manejo de errores
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     res.status(500).json({ error: "Error interno del servidor" });
 });
 
-app.listen(PORT, () => {
+// Iniciar servidor
+const server = app.listen(PORT, () => {
     console.log(`Servidor Express escuchando en http://localhost:${PORT}`);
+});
+
+// Prevenir cierre del proceso
+process.on("uncaughtException", (err) => {
+    console.error("Excepción capturada:", err);
 });
